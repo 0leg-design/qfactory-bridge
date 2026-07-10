@@ -124,7 +124,7 @@ export const pairCommand = new Command("pair")
       return;
     }
     const ttlSec = startBody.expiresInSec ?? 300;
-    const pairUrl = `${serverUrl}/account/settings#desktop-clis`;
+    const pairUrl = `${serverUrl}/pair`;
     console.log(`${C.green}OK${C.reset}`);
     console.log();
 
@@ -136,7 +136,7 @@ export const pairCommand = new Command("pair")
       `${C.dim}1. Open this URL where you're signed in:${C.reset}`,
       `   ${C.bold}${pairUrl}${C.reset}`,
       "",
-      `${C.dim}2. Click “Enter pairing code” and type:${C.reset}`,
+      `${C.dim}2. Type this pairing code:${C.reset}`,
       "",
       `        ${codeLine}`,
     ];
