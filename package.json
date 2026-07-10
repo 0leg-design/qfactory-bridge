@@ -1,5 +1,5 @@
 {
-  "name": "@qfactory/bridge",
+  "name": "@q-factory/bridge",
   "version": "0.2.0",
   "description": "Bridge — run agent tasks on your own machine through your own CLI (Claude Code / Codex / Cursor / Gemini). MCP server + `qf` CLI.",
   "license": "MIT",

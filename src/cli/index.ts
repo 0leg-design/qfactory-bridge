@@ -10,6 +10,9 @@ import { stopCommand } from "./commands/stop.js";
 import { restartCommand } from "./commands/restart.js";
 import { installCommand } from "./commands/install.js";
 import { logsCommand } from "./commands/logs.js";
+import { updateCommand } from "./commands/update.js";
+
+import { maybeNotifyUpdate } from "../core/update-check.js";
 
 // Workspace-token flow (report into the dashboard from your agent)
 import { loginCommand } from "./commands/login.js";
@@ -46,6 +49,7 @@ program.addCommand(installCommand);
 program.addCommand(logsCommand);
 program.addCommand(dirCommand);
 program.addCommand(devicesCommand);
+program.addCommand(updateCommand);
 
 // Workspace-token flow
 program.addCommand(loginCommand);
@@ -59,5 +63,10 @@ program.addCommand(pendingCommand);
 
 // Deprecated aliases (hidden from help; forward with a notice)
 program.addCommand(linkAliasCommand);
+
+// Fire-and-forget startup update check. Quiet, cached (≤once/24h), opt-out via
+// QF_NO_UPDATE_CHECK=1, and skipped when stderr isn't a TTY — so it never
+// delays, fails, or pollutes the actual command. Deliberately NOT awaited.
+void maybeNotifyUpdate(pkgVersion);
 
 program.parse(process.argv);

@@ -1,4 +1,10 @@
-# @qfactory/bridge
+# QFactory Bridge — `@q-factory/bridge`
+
+> **On the name.** The product and brand are **QFactory** (the CLI is `qf`, the
+> concept is the *Bridge*). The npm package ships under the existing scope
+> **`@q-factory/bridge`** — that scope is already published, so releasing here
+> upgrades current users in place. The `@qfactory` scope may be adopted later;
+> for now, install from `@q-factory/bridge`.
 
 **Bridge** is a small local daemon that runs agent tasks on **your** machine,
 through **your own** agent CLI — Claude Code, Codex, Cursor, or Gemini. You pair
@@ -15,10 +21,16 @@ It ships two binaries:
 ## Install
 
 ```bash
-npm i -g @qfactory/bridge
+npm i -g @q-factory/bridge
 ```
 
 Requires Node.js >= 20.
+
+Already installed? Update to the latest release with:
+
+```bash
+qf update
+```
 
 ## Quick start
 
@@ -38,7 +50,7 @@ qf logs -f       # follow its output
 
 ### Pointing at a different server
 
-The default server is `https://lungo.qfactory.io`. Override per-command with
+The default server is `https://qfactory.io`. Override per-command with
 `--server <url>` or globally with the `QF_SERVER` environment variable:
 
 ```bash
@@ -60,6 +72,7 @@ Device pairing + local execution:
 | `qf logs [-f]` | Show / follow the daemon log. |
 | `qf dir <project> <path>` | Map a project to a local folder. |
 | `qf devices` | List devices paired to your account. |
+| `qf update` | Re-install the CLI at the latest published version. |
 
 Workspace-token flow (report into the dashboard from an agent):
 
@@ -80,6 +93,36 @@ credentials.
 
 > `qf link` is a deprecated alias for `qf dir` (it prints a notice and
 > forwards).
+
+## Staying up to date
+
+Update the CLI in place at any time:
+
+```bash
+qf update
+```
+
+It detects how Bridge was installed (npm / pnpm / yarn / bun global) and runs the
+matching global install for `@q-factory/bridge@latest`, printing the old → new
+version. If you're already on the latest it says so and exits `0`; if the
+registry is unreachable or the install needs elevated permissions it tells you
+exactly what to do (and never leaves a half-broken install).
+
+**Automatic notice.** On startup the CLI quietly checks the npm registry (at most
+once every 24h) and, if a newer Bridge is published, prints one line to stderr:
+
+```
+A newer Bridge is available: 0.2.0 → 0.3.1. Run: qf update
+```
+
+This check is deliberately unobtrusive: it never blocks or delays a command, it
+is cached in `~/.config/qfactory/update-check.json`, and it is skipped entirely
+when stderr is not a TTY (so it never pollutes piped or JSON output, or the
+daemon's logs). Disable it completely with:
+
+```bash
+export QF_NO_UPDATE_CHECK=1
+```
 
 ## Config file locations
 

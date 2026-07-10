@@ -55,7 +55,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => Promise<CallTo
 
 async function main() {
   const server = new Server(
-    { name: "@qfactory/bridge", version: pkgVersion },
+    { name: "@q-factory/bridge", version: pkgVersion },
     { capabilities: { tools: {} } },
   );
 

@@ -29,7 +29,7 @@ export function packageVersion(): string {
  * Default Bridge server. Override per-invocation with `--server <url>` or the
  * `QF_SERVER` environment variable (see `resolveServer`).
  */
-export const DEFAULT_SERVER = "https://lungo.qfactory.io";
+export const DEFAULT_SERVER = "https://qfactory.io";
 
 /**
  * Resolve the server URL for a command run. Precedence:
