@@ -1,0 +1,20 @@
+# Manual-only CI. This repo's owner meters GitHub Actions minutes, so this
+# workflow NEVER runs on push or pull_request — trigger it by hand from the
+# Actions tab (or `gh workflow run ci.yml`).
+name: CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - run: npm test

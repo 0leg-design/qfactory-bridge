@@ -5,4 +5,5 @@ export * from "./actions/log_cost.js";
 export * from "./actions/send_chat.js";
 export * from "./actions/request_human.js";
 export * from "./actions/pending_tasks.js";
-export * from "./actions/qf.js";
+export * from "./actions/context_docs.js";
+export * from "./config.js";

@@ -11,7 +11,25 @@ import { logCostTool, handleLogCost } from "./tools/log_cost.js";
 import { sendChatTool, handleSendChat } from "./tools/send_chat.js";
 import { requestHumanTool, handleRequestHuman } from "./tools/request_human.js";
 import { pendingTasksTool, handlePendingTasks } from "./tools/pending_tasks.js";
-import { qfTools, qfHandlers } from "./tools/qf.js";
+import {
+  createContextDocTool,
+  handleCreateContextDoc,
+  updateContextDocTool,
+  handleUpdateContextDoc,
+} from "./tools/context_docs.js";
+import { createRequire } from "node:module";
+
+// Read the version from the package's own package.json at runtime so the MCP
+// server never drifts from the published package (it used to be hardcoded to
+// "0.1.0"). package.json ships in the package root → resolvable from the
+// bundled dist/mcp/index.js via ../../.
+const require = createRequire(import.meta.url);
+let pkgVersion = "0.0.0";
+try {
+  pkgVersion = (require("../../package.json") as { version: string }).version;
+} catch {
+  // keep fallback if the file can't be resolved in an unusual layout
+}
 
 const ALL_TOOLS = [
   // execution-reporting verbs
@@ -20,8 +38,9 @@ const ALL_TOOLS = [
   sendChatTool,
   requestHumanTool,
   pendingTasksTool,
-  // qfactory.* management verbs (reframe R1)
-  ...qfTools,
+  // context knowledge base verbs
+  createContextDocTool,
+  updateContextDocTool,
 ];
 
 const handlers: Record<string, (args: Record<string, unknown>) => Promise<CallToolResult>> = {
@@ -30,12 +49,13 @@ const handlers: Record<string, (args: Record<string, unknown>) => Promise<CallTo
   send_chat: handleSendChat,
   request_human: handleRequestHuman,
   get_pending_tasks: handlePendingTasks,
-  ...qfHandlers,
+  create_context_doc: handleCreateContextDoc,
+  update_context_doc: handleUpdateContextDoc,
 };
 
 async function main() {
   const server = new Server(
-    { name: "@q-factory/bridge", version: "0.1.0" },
+    { name: "@qfactory/bridge", version: pkgVersion },
     { capabilities: { tools: {} } },
   );
 

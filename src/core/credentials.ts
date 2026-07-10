@@ -1,11 +1,10 @@
 import { readFileSync, writeFileSync, mkdirSync, chmodSync } from "fs";
-import { homedir } from "os";
-import { join, dirname } from "path";
+import { dirname } from "path";
 import type { Credentials } from "./types.js";
+import { configPath } from "./config.js";
 
 function credentialsPath(): string {
-  return process.env.QF_CREDENTIALS_PATH
-    ?? join(homedir(), ".config", "q-factory", "credentials.json");
+  return process.env.QF_CREDENTIALS_PATH ?? configPath("credentials.json");
 }
 
 export function loadCredentials(): Credentials {
