@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { randomBytes } from "crypto";
 import { saveCredentials } from "../../core/credentials.js";
+import { DEFAULT_SERVER, resolveServer } from "../../core/config.js";
 
 const POLL_INTERVAL_MS = 2_000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -15,10 +16,10 @@ interface ExchangeResponse {
 }
 
 export const loginCommand = new Command("login")
-  .description("Authenticate with your Q-Factory server")
-  .option("--server <url>", "Server URL (default: https://q.oleg.design)", "https://q.oleg.design")
-  .action(async (opts: { server: string }) => {
-    const serverUrl = opts.server.replace(/\/$/, "");
+  .description("Authenticate with your Bridge server (workspace token, OOB flow)")
+  .option("--server <url>", `Server URL (default: ${DEFAULT_SERVER}, or $QF_SERVER)`)
+  .action(async (opts: { server?: string }) => {
+    const serverUrl = resolveServer(opts.server);
     const code = randomBytes(32).toString("hex");
     const authorizeUrl = `${serverUrl}/cli/authorize?code=${code}`;
 

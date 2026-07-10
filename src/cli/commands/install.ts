@@ -1,46 +1,54 @@
-// `qf device-daemon-install` — drop a launchd plist (macOS) or systemd user
-// unit (Linux) so the device daemon runs at login. We print instructions
-// rather than auto-load to keep the install reversible. v0.4 #11.
+// `qf install` — drop a launchd plist (macOS) or systemd user unit (Linux) so
+// the device daemon (`qf start`) runs at login. We print the load/enable
+// instructions rather than auto-loading, to keep the install reversible.
 
 import { Command } from "commander";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
-import { homedir, platform } from "os";
-import { join, dirname } from "path";
+import { platform } from "os";
+import { dirname } from "path";
+import {
+  LAUNCHD_LABEL,
+  launchdPlistPath,
+  SYSTEMD_UNIT,
+  systemdUnitPath,
+  DAEMON_OUT_LOG,
+  DAEMON_ERR_LOG,
+} from "../../core/config.js";
 
-export const deviceDaemonInstallCommand = new Command("device-daemon-install")
-  .description("Install the device-daemon launch agent (macOS) or systemd unit (Linux)")
+export const installCommand = new Command("install")
+  .description("Install the device daemon as a launch agent (macOS) / systemd unit (Linux)")
   .option("--bin <path>", "Path to the qf binary", "qf")
   .option("--dry-run", "Print the unit/plist contents but do not write")
   .action(async (opts: { bin: string; dryRun?: boolean }) => {
-    const home = homedir();
     const plat = platform();
 
     if (plat === "darwin") {
-      const path = join(home, "Library", "LaunchAgents", "ai.qfactory.device-daemon.plist");
+      const path = launchdPlistPath();
       const plist = renderPlist(opts.bin);
       writeOrPrint(path, plist, !!opts.dryRun);
       if (!opts.dryRun) {
         console.log("\nLoad it now with:");
         console.log(`  launchctl unload ${path} 2>/dev/null; launchctl load ${path}`);
+        console.log("Or simply:  qf restart");
       }
       return;
     }
 
     if (plat === "linux") {
-      const path = join(home, ".config", "systemd", "user", "qfactory-device-daemon.service");
+      const path = systemdUnitPath();
       const unit = renderSystemdUnit(opts.bin);
       writeOrPrint(path, unit, !!opts.dryRun);
       if (!opts.dryRun) {
         console.log("\nEnable + start it now with:");
         console.log("  systemctl --user daemon-reload");
-        console.log("  systemctl --user enable --now qfactory-device-daemon.service");
+        console.log(`  systemctl --user enable --now ${SYSTEMD_UNIT}`);
       }
       return;
     }
 
     console.error(
-      `Platform ${plat} not supported by device-daemon-install. ` +
-        `Run qf device-daemon directly under your process supervisor of choice.`,
+      `Platform ${plat} not supported by qf install. ` +
+        `Run \`qf start\` directly under your process supervisor of choice.`,
     );
     process.exit(1);
   });
@@ -64,31 +72,35 @@ function renderPlist(binPath: string): string {
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>ai.qfactory.device-daemon</string>
+  <key>Label</key><string>${LAUNCHD_LABEL}</string>
   <key>ProgramArguments</key>
   <array>
     <string>${binPath}</string>
-    <string>device-daemon</string>
+    <string>start</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>/tmp/qf-device-daemon.out.log</string>
-  <key>StandardErrorPath</key><string>/tmp/qf-device-daemon.err.log</string>
+  <key>StandardOutPath</key><string>${DAEMON_OUT_LOG}</string>
+  <key>StandardErrorPath</key><string>${DAEMON_ERR_LOG}</string>
 </dict>
 </plist>
 `;
 }
 
 function renderSystemdUnit(binPath: string): string {
+  // Mirror stdout/stderr to the same log files the macOS agent uses so
+  // `qf logs` works identically on Linux (in addition to the journal).
   return `[Unit]
-Description=Q-Factory device daemon
+Description=Bridge device daemon (qfactory)
 After=network-online.target
 
 [Service]
 Type=simple
-ExecStart=${binPath} device-daemon
+ExecStart=${binPath} start
 Restart=on-failure
 RestartSec=5
+StandardOutput=append:${DAEMON_OUT_LOG}
+StandardError=append:${DAEMON_ERR_LOG}
 
 [Install]
 WantedBy=default.target

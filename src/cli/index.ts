@@ -1,4 +1,20 @@
 import { Command } from "commander";
+import { createRequire } from "node:module";
+
+// Device pairing + local execution (the primary public flow)
+import { pairCommand } from "./commands/pair.js";
+import { devicesCommand } from "./commands/devices.js";
+import { dirCommand, linkAliasCommand } from "./commands/dir.js";
+import { startCommand } from "./commands/start.js";
+import { stopCommand } from "./commands/stop.js";
+import { restartCommand } from "./commands/restart.js";
+import { installCommand } from "./commands/install.js";
+import { logsCommand } from "./commands/logs.js";
+import { updateCommand } from "./commands/update.js";
+
+import { maybeNotifyUpdate } from "../core/update-check.js";
+
+// Workspace-token flow (report into the dashboard from your agent)
 import { loginCommand } from "./commands/login.js";
 import { logoutCommand } from "./commands/logout.js";
 import { whoamiCommand } from "./commands/whoami.js";
@@ -7,34 +23,35 @@ import { costCommand } from "./commands/cost.js";
 import { chatCommand } from "./commands/chat.js";
 import { humanCommand } from "./commands/human.js";
 import { pendingCommand } from "./commands/pending.js";
-import { daemonCommand } from "./commands/daemon.js";
-import { storiesCommand } from "./commands/stories.js";
-import { storyCommand } from "./commands/story.js";
-import { newCommand } from "./commands/new.js";
-import { setCommand } from "./commands/set.js";
-import { logCommand } from "./commands/log.js";
-import { processesCommand } from "./commands/processes.js";
-import { boardCommand } from "./commands/board.js";
-import { signalCommand } from "./commands/signal.js";
-import { signalsCommand } from "./commands/signals.js";
-import { linkSignalCommand } from "./commands/link-signal.js";
-import { promoteSignalCommand } from "./commands/promote-signal.js";
-import { draftSignalCommand } from "./commands/draft-signal.js";
-import { coordinatorCommand } from "./commands/coordinator.js";
-import { pairCommand } from "./commands/pair.js";
-import { devicesCommand } from "./commands/devices.js";
-import { deviceDaemonCommand } from "./commands/device-daemon.js";
-import { deviceDaemonInstallCommand } from "./commands/device-daemon-install.js";
+
+// Read the version from the package's own package.json at runtime so `qf
+// --version` never drifts from the published package. package.json is always
+// shipped in the package root → resolvable from the bundled dist/cli/index.js
+// via ../../.
+const require = createRequire(import.meta.url);
+let pkgVersion = "0.0.0";
+try {
+  pkgVersion = (require("../../package.json") as { version: string }).version;
+} catch {
+  // keep fallback if the file can't be resolved in an unusual layout
+}
 
 const program = new Command("qf")
-  .version("0.1.0")
-  .description("Q-Factory CLI — connect your local agent to the Q-Factory dashboard");
+  .version(pkgVersion)
+  .description("Bridge — run agent tasks on your machine through your own CLI");
 
-// auth + execution-reporting
+// Device pairing + local daemon
 program.addCommand(pairCommand);
+program.addCommand(startCommand);
+program.addCommand(stopCommand);
+program.addCommand(restartCommand);
+program.addCommand(installCommand);
+program.addCommand(logsCommand);
+program.addCommand(dirCommand);
 program.addCommand(devicesCommand);
-program.addCommand(deviceDaemonCommand);
-program.addCommand(deviceDaemonInstallCommand);
+program.addCommand(updateCommand);
+
+// Workspace-token flow
 program.addCommand(loginCommand);
 program.addCommand(logoutCommand);
 program.addCommand(whoamiCommand);
@@ -43,25 +60,13 @@ program.addCommand(costCommand);
 program.addCommand(chatCommand);
 program.addCommand(humanCommand);
 program.addCommand(pendingCommand);
-program.addCommand(daemonCommand);
 
-// qfactory.* management (reframe R1)
-program.addCommand(storiesCommand);
-program.addCommand(storyCommand);
-program.addCommand(newCommand);
-program.addCommand(setCommand);
-program.addCommand(logCommand);
-program.addCommand(processesCommand);
-program.addCommand(boardCommand);
+// Deprecated aliases (hidden from help; forward with a notice)
+program.addCommand(linkAliasCommand);
 
-// signals (reframe R2)
-program.addCommand(signalCommand);
-program.addCommand(signalsCommand);
-program.addCommand(linkSignalCommand);
-program.addCommand(promoteSignalCommand);
-program.addCommand(draftSignalCommand);
-
-// Operations Factory (phase-sub-agents E4) — multi-agent coordinator runs
-program.addCommand(coordinatorCommand);
+// Fire-and-forget startup update check. Quiet, cached (≤once/24h), opt-out via
+// QF_NO_UPDATE_CHECK=1, and skipped when stderr isn't a TTY — so it never
+// delays, fails, or pollutes the actual command. Deliberately NOT awaited.
+void maybeNotifyUpdate(pkgVersion);
 
 program.parse(process.argv);

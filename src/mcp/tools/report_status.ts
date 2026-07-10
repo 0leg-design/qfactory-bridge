@@ -4,7 +4,7 @@ import { reportStatus, reportStatusInput } from "../../core/actions/report_statu
 export const reportStatusTool: Tool = {
   name: "report_status",
   description:
-    "Update a Q-Factory task status. Call after every meaningful state change so the dashboard stays in sync.",
+    "Update a task status. Call after every meaningful state change so the dashboard stays in sync.",
   inputSchema: {
     type: "object" as const,
     properties: {

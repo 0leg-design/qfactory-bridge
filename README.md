@@ -1,116 +1,167 @@
-# @q-factory/bridge
+# QFactory Bridge — `@q-factory/bridge`
 
-Local bridge between your agent (Claude Code or Codex CLI) and the Q-Factory dashboard.
+> **On the name.** The product and brand are **QFactory** (the CLI is `qf`, the
+> concept is the *Bridge*). The npm package ships under the existing scope
+> **`@q-factory/bridge`** — that scope is already published, so releasing here
+> upgrades current users in place. The `@qfactory` scope may be adopted later;
+> for now, install from `@q-factory/bridge`.
+
+**Bridge** is a small local daemon that runs agent tasks on **your** machine,
+through **your own** agent CLI — Claude Code, Codex, Cursor, or Gemini. You pair
+the machine once, start the daemon, and tasks dispatched from your Bridge
+dashboard execute locally against your linked folders. Nothing runs in the
+cloud; your code and your CLI subscription stay on your box.
+
+It ships two binaries:
+
+- **`qf`** — the CLI (pairing, the daemon, folder mapping, status).
+- **`qf-mcp`** — an MCP stdio server that exposes execution-reporting and
+  knowledge-base tools to an MCP client (e.g. Claude Code).
 
 ## Install
 
 ```bash
-npm install -g @q-factory/bridge
+npm i -g @q-factory/bridge
 ```
 
-Requires Node.js 20+.
+Requires Node.js >= 20.
 
-## Mode A — Local agent via Claude Code (MCP)
-
-In Mode A, Q-Factory orchestrates a Claude Code CLI agent running on your machine. Your local files are accessible; you pay LLM costs through your Claude Code subscription.
-
-**Step 1 — Pair your device**
+Already installed? Update to the latest release with:
 
 ```bash
-qf pair
+qf update
 ```
 
-This registers the current machine with your Q-Factory account. The command prints a 6-character OTP — enter it at `https://q.oleg.design/account/devices` in your browser. On success, a device token is saved to `~/.config/q-factory/device.json`.
-
-**Step 2 — Register the MCP server with Claude Code**
-
-Add the `qf-mcp` server to `~/.claude/claude_desktop_config.json` (or run `claude mcp add`):
-
-```json
-{
-  "mcpServers": {
-    "q-factory": {
-      "command": "qf-mcp"
-    }
-  }
-}
-```
-
-Claude Code now has access to Q-Factory tools:
-
-- **Execution-reporting:** `report_status`, `log_cost`, `send_chat`, `request_human`, `get_pending_tasks`
-- **Story/Task management (`qfactory.*`):** `list_stories`, `get_story`, `create_story`, `update_story`, `add_activity`, `list_processes`, `create_process`, `link_story_process`
-
-## Quickstart: Codex CLI / scripts
+## Quick start
 
 ```bash
-qf login                    # opens browser, stores token to ~/.config/q-factory/credentials.json
+qf pair          # prints a 6-char OTP + a URL — enter the OTP in your dashboard
+qf dir myproject ~/code/myproject   # map a project to a local folder
+qf start         # run the daemon in the foreground; it polls and executes tasks
 ```
 
-Add this preamble to your Codex system prompt:
-
-```
-You have access to the `qf` CLI. Use it to keep the Q-Factory dashboard in sync:
-- qf status <taskId> <status>               # report progress
-- qf cost <taskId> --model=... --in=N --out=N --usd=0.001   # log token cost
-- qf chat <taskId> --content="..."          # post to chat thread
-- qf human <taskId> --reason="..."          # escalate to human
-- qf pending                                # list your dispatched tasks
-```
-
-## Commands
-
-| Command | Description |
-|---|---|
-| `qf pair [--server <url>]` | Pair this device with your Q-Factory account (Mode A) |
-| `qf devices [--json]` | List paired devices |
-| `qf login [--server <url>]` | Authenticate (browser flow, stores workspace token) |
-| `qf whoami` | Show current credentials |
-| `qf logout` | Remove local credentials |
-| `qf status <taskId> <status> [--note]` | Update task status |
-| `qf cost <taskId> --model --in --out --usd [--run] [--note]` | Log cost event |
-| `qf chat <taskId> --content [--role] [--model]` | Post chat message |
-| `qf human <taskId> --reason` | Escalate to human |
-| `qf pending [--project] [--json]` | List dispatched tasks |
-| `qf daemon [--interval] [--project]` | Background polling daemon |
-| `qf stories [--type --status --project --parent --tag --json]` | List stories/tasks |
-| `qf story <id>` | Full detail of a story/task |
-| `qf new <title> [--type --brief --project --status --parent --external-ref]` | Create story/task |
-| `qf set <id> [--status --title --brief --type --project --model --human-reason]` | Update story/task |
-| `qf log <id> <content> [--kind --role --model]` | Append activity entry |
-| `qf processes [--project --json]` | List processes |
-| `qf board [--project --type]` | Read-only board grouped by status |
-
-## Token locations
-
-| File | Purpose |
-|---|---|
-| `~/.config/q-factory/credentials.json` | Workspace token (`qf login`) |
-| `~/.config/q-factory/device.json` | Device token (`qf pair`) |
-
-Both files are created on first use. If you need a custom location set `QF_CREDENTIALS_PATH`.
-
-## Daemon (Codex workflow)
-
-The daemon polls for new tasks and writes them to `~/.config/q-factory/inbox/<taskId>.json`.
-Your Codex script can watch this directory for new files.
+To run the daemon at login instead of in the foreground:
 
 ```bash
-qf daemon --interval 10000 &
+qf install       # writes a launchd agent (macOS) or systemd user unit (Linux)
+qf restart       # (re)load it
+qf logs -f       # follow its output
 ```
 
-## Server URL
+### Pointing at a different server
 
-Default: `https://q.oleg.design`. Override with `--server` at login or pair time.
+The default server is `https://qfactory.io`. Override per-command with
+`--server <url>` or globally with the `QF_SERVER` environment variable:
 
-## Publishing
+```bash
+QF_SERVER=https://my-host.example qf pair
+qf login --server https://my-host.example
+```
 
-This package is published to npm under `@q-factory/bridge`. To publish a new version:
+## Command reference
 
-1. Bump the `version` field in `packages/bridge/package.json`.
-2. Run `npm login` (must be a member of the `@q-factory` npm org).
-3. From `packages/bridge/`:
-   ```bash
-   npm publish --access public
-   ```
-   `prepublishOnly` runs `npm run build` automatically before the upload.
+Device pairing + local execution:
+
+| Command | What it does |
+| --- | --- |
+| `qf pair` | Pair this machine with your account (OTP handshake). |
+| `qf start` | Start the device daemon (polls for tasks and runs them here). |
+| `qf stop` | Stop the running daemon (service or foreground). |
+| `qf restart` | Restart the installed daemon. |
+| `qf install` | Install the daemon as a launchd agent / systemd unit. |
+| `qf logs [-f]` | Show / follow the daemon log. |
+| `qf dir <project> <path>` | Map a project to a local folder. |
+| `qf devices` | List devices paired to your account. |
+| `qf update` | Re-install the CLI at the latest published version. |
+
+Workspace-token flow (report into the dashboard from an agent):
+
+| Command | What it does |
+| --- | --- |
+| `qf login` | Authenticate with a workspace token (out-of-band browser flow). |
+| `qf logout` | Remove local workspace credentials. |
+| `qf whoami` | Show the active workspace credentials. |
+| `qf status <taskId> <status>` | Update a task's status. |
+| `qf cost <taskId> …` | Log a token-cost event. |
+| `qf chat <taskId> …` | Post a message to a task thread. |
+| `qf human <taskId> …` | Escalate a task to human review. |
+| `qf pending` | List dispatched tasks. |
+
+`qf login` (workspace token) and `qf pair` (device token) are **different
+flows** and can both be active at once — `qf pair` never overwrites the login
+credentials.
+
+> `qf link` is a deprecated alias for `qf dir` (it prints a notice and
+> forwards).
+
+## Staying up to date
+
+Update the CLI in place at any time:
+
+```bash
+qf update
+```
+
+It detects how Bridge was installed (npm / pnpm / yarn / bun global) and runs the
+matching global install for `@q-factory/bridge@latest`, printing the old → new
+version. If you're already on the latest it says so and exits `0`; if the
+registry is unreachable or the install needs elevated permissions it tells you
+exactly what to do (and never leaves a half-broken install).
+
+**Automatic notice.** On startup the CLI quietly checks the npm registry (at most
+once every 24h) and, if a newer Bridge is published, prints one line to stderr:
+
+```
+A newer Bridge is available: 0.2.0 → 0.3.1. Run: qf update
+```
+
+This check is deliberately unobtrusive: it never blocks or delays a command, it
+is cached in `~/.config/qfactory/update-check.json`, and it is skipped entirely
+when stderr is not a TTY (so it never pollutes piped or JSON output, or the
+daemon's logs). Disable it completely with:
+
+```bash
+export QF_NO_UPDATE_CHECK=1
+```
+
+## Config file locations
+
+Config lives under `~/.config/qfactory/`:
+
+- `~/.config/qfactory/credentials.json` — workspace token from `qf login`.
+- `~/.config/qfactory/device.json` — device token from `qf pair`.
+
+The local project→folder map lives at `~/.qf/repos.json`.
+
+**Migration:** earlier builds used `~/.config/q-factory/`. On first run the CLI
+moves that directory to `~/.config/qfactory/` automatically (best-effort; if the
+move fails you simply re-run `qf pair` / `qf login`). Override paths with
+`QF_CREDENTIALS_PATH`, `QF_DEVICE_PATH`, and `QF_REPOS_PATH` if needed.
+
+## Security
+
+- **Pairing.** `qf pair` receives a short OTP (the routing key you retype) and a
+  64-hex-char `pairingSecret` (the real credential). The secret is kept in
+  memory during pairing and is **never printed or shown**. Every pairing poll
+  sends the secret; the server rejects a missing or wrong secret
+  indistinguishably from an unknown OTP.
+- **Device token.** After pairing, the server stores only a **sha256 hash** of
+  the device token; the raw token lives only in `~/.config/qfactory/device.json`
+  (written `0600`). The CLI holds an opaque bearer token — it is not a password
+  and carries no account credentials.
+- **Revocation.** `qf logout` clears local workspace credentials. Remove
+  `device.json` (or unpair the device from the dashboard) to revoke device
+  access.
+
+## Development
+
+```bash
+npm install
+npm run typecheck   # tsc --noEmit
+npm run build       # tsup → dist/
+npm test            # unit tests for the pure modules
+```
+
+## License
+
+MIT © Oleg Kukharuk

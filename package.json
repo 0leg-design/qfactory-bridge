@@ -1,8 +1,9 @@
 {
   "name": "@q-factory/bridge",
-  "version": "0.1.0",
-  "description": "Q-Factory local bridge — MCP server for Claude Code + CLI for Codex/scripts",
+  "version": "0.2.0",
+  "description": "Bridge — run agent tasks on your own machine through your own CLI (Claude Code / Codex / Cursor / Gemini). MCP server + `qf` CLI.",
   "license": "MIT",
+  "author": "Oleg Kukharuk",
   "type": "module",
   "main": "./dist/core/index.js",
   "types": "./dist/core/index.d.ts",
@@ -18,14 +19,25 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
+    "test": "tsx test/run.ts",
     "prepublishOnly": "npm run build"
   },
+  "keywords": [
+    "agent",
+    "cli",
+    "mcp",
+    "claude-code",
+    "codex",
+    "daemon",
+    "bridge"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -37,9 +49,18 @@
   "devDependencies": {
     "@types/node": "^20",
     "tsup": "^8.5.0",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   },
   "engines": {
     "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0leg-design/qfactory-bridge.git"
+  },
+  "homepage": "https://github.com/0leg-design/qfactory-bridge#readme",
+  "bugs": {
+    "url": "https://github.com/0leg-design/qfactory-bridge/issues"
   }
 }

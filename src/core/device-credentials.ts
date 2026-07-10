@@ -1,7 +1,7 @@
 // Device pairing credentials — stored alongside the workspace credentials.
-// The v0.3 `qf pair` flow writes here; future device-mode commands read.
+// The `qf pair` flow writes here; device-mode commands read.
 //
-// File layout: ~/.config/q-factory/device.json
+// File layout: ~/.config/qfactory/device.json
 //   { deviceId, deviceToken, serverUrl, pairedAt }
 //
 // The token is the raw 32-byte hex string the server returned from
@@ -9,8 +9,8 @@
 // raw value never leaves this file.
 
 import { readFileSync, writeFileSync, mkdirSync, chmodSync } from "fs";
-import { homedir } from "os";
-import { join, dirname } from "path";
+import { dirname } from "path";
+import { configPath } from "./config.js";
 
 export interface DeviceCredentials {
   deviceId: string;
@@ -20,10 +20,7 @@ export interface DeviceCredentials {
 }
 
 function devicePath(): string {
-  return (
-    process.env.QF_DEVICE_PATH ??
-    join(homedir(), ".config", "q-factory", "device.json")
-  );
+  return process.env.QF_DEVICE_PATH ?? configPath("device.json");
 }
 
 export function loadDeviceCredentials(): DeviceCredentials {
