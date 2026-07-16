@@ -11,8 +11,10 @@
 //      until the user claims it from the web UI. On success we write the device
 //      token to ~/.config/qfactory/device.json and exit.
 //
-// Note: the device flow lives alongside the `qf login` workspace token. Both
-// can be present; `qf pair` does not overwrite `credentials.json`.
+// The device token this writes is the ONLY credential (0.3.0): the daemon polls
+// with it and `qf-mcp` reaches the control plane with it. The `qf login`
+// workspace token it used to sit alongside is gone — nothing reads
+// `credentials.json` anymore.
 
 import { Command } from "commander";
 import { hostname, platform, release } from "os";
