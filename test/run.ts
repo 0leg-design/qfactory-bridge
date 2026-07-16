@@ -19,6 +19,7 @@ import {
   UPDATE_CHECK_INTERVAL_MS,
   type UpdateCache,
 } from "../src/core/update-check.js";
+import { unwrapRpc } from "../src/core/mcp-client.js";
 
 // ── limit-signal ─────────────────────────────────────────────────────────────
 
@@ -234,4 +235,40 @@ test("update-check: notice only when a newer version exists", () => {
   );
   assert.equal(updateNotice("0.3.1", "0.3.1"), null); // already latest
   assert.equal(updateNotice("0.10.0", "0.2.0"), null); // running ahead of registry
+});
+
+// ── mcp-client: JSON-RPC envelope unwrapping ──────────────────────────────────
+
+test("unwrapRpc: a result comes back verbatim", () => {
+  const out = unwrapRpc<{ tools: string[] }>(200, {
+    jsonrpc: "2.0",
+    id: 1,
+    result: { tools: ["list_reviews"] },
+  });
+  assert.deepEqual(out.tools, ["list_reviews"]);
+});
+
+test("unwrapRpc: 401 names the fix (pairing), not the status code", () => {
+  assert.throws(
+    () => unwrapRpc(401, { jsonrpc: "2.0", id: null, error: { code: -32001, message: "Unauthorized" } }),
+    /qf pair/,
+  );
+});
+
+test("unwrapRpc: an in-band error on a 200 still throws", () => {
+  // The control plane signals auth at the HTTP layer but everything else in-band
+  // on a 200 — a naive res.ok check would swallow this.
+  assert.throws(
+    () => unwrapRpc(200, { jsonrpc: "2.0", id: 1, error: { code: -32601, message: "Method not found: nope" } }),
+    /Method not found: nope \(JSON-RPC -32601\)/,
+  );
+});
+
+test("unwrapRpc: a 200 with neither result nor error is a bad response", () => {
+  assert.throws(() => unwrapRpc(200, { jsonrpc: "2.0", id: 1 }), /no result/);
+  assert.throws(() => unwrapRpc(200, null), /not a JSON object/);
+});
+
+test("unwrapRpc: an empty result object is valid (ping)", () => {
+  assert.deepEqual(unwrapRpc(200, { jsonrpc: "2.0", id: 1, result: {} }), {});
 });

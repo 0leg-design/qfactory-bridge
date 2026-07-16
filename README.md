@@ -15,8 +15,25 @@ cloud; your code and your CLI subscription stay on your box.
 It ships two binaries:
 
 - **`qf`** — the CLI (pairing, the daemon, folder mapping, status).
-- **`qf-mcp`** — an MCP stdio server that exposes execution-reporting and
-  knowledge-base tools to an MCP client (e.g. Claude Code).
+- **`qf-mcp`** — an MCP stdio server that gives an MCP client (Claude Code,
+  Claude Desktop) your QFactory tools: list intents, read and annotate reviews,
+  capture signals. It proxies to the control plane, so the tool list is whatever
+  your server offers — no package upgrade needed when it grows.
+
+## Server compatibility
+
+The bridge talks to **one** server contract, and it changed. Pick the line that
+matches your server:
+
+| Bridge | Server | Contract |
+| --- | --- | --- |
+| **0.3.x** | `https://qfactory.io` | `/api/devices/*` + `/api/mcp`. One credential: the device token from `qf pair`. |
+| 0.2.x | `https://qfactory.io` | `/api/devices/*` only. The `qf-mcp` tools and `qf login` are **dead** here — they call `/api/bridge/*`, which qfactory.io returns 404 for. |
+| 0.1.x | legacy prod only | `/api/bridge/*`. Does not work against qfactory.io. |
+
+On **0.3.0** the workspace token is gone: `qf pair` mints the only credential,
+and `qf-mcp` uses it too. If you are on 0.1.x or 0.2.x, run `qf update` and then
+`qf pair` once.
 
 ## Install
 
@@ -40,6 +57,22 @@ qf dir myproject ~/code/myproject   # map a project to a local folder
 qf start         # run the daemon in the foreground; it polls and executes tasks
 ```
 
+### Use it from your agent (MCP)
+
+Point any stdio MCP client at `qf-mcp` — it reuses the same pairing, so there is
+nothing else to authenticate:
+
+```json
+{
+  "mcpServers": {
+    "qfactory": { "command": "qf-mcp" }
+  }
+}
+```
+
+Your agent can then list intents, read and annotate reviews, and capture
+signals. It cannot approve anything.
+
 To run the daemon at login instead of in the foreground:
 
 ```bash
@@ -55,16 +88,16 @@ The default server is `https://qfactory.io`. Override per-command with
 
 ```bash
 QF_SERVER=https://my-host.example qf pair
-qf login --server https://my-host.example
 ```
 
 ## Command reference
 
-Device pairing + local execution:
+Pairing + local execution:
 
 | Command | What it does |
 | --- | --- |
-| `qf pair` | Pair this machine with your account (OTP handshake). |
+| `qf pair` | Pair this machine with your account (OTP handshake). Mints the only credential. |
+| `qf unpair` | Remove this machine's device credentials (local only — revoke in the dashboard to invalidate the token). |
 | `qf start` | Start the device daemon (polls for tasks and runs them here). |
 | `qf stop` | Stop the running daemon (service or foreground). |
 | `qf restart` | Restart the installed daemon. |
@@ -72,27 +105,28 @@ Device pairing + local execution:
 | `qf logs [-f]` | Show / follow the daemon log. |
 | `qf dir <project> <path>` | Map a project to a local folder. |
 | `qf devices` | List devices paired to your account. |
+| `qf whoami` | Show which device this machine is paired as, and probe that the pairing is live. |
 | `qf update` | Re-install the CLI at the latest published version. |
 
-Workspace-token flow (report into the dashboard from an agent):
+Control plane (same device token):
 
 | Command | What it does |
 | --- | --- |
-| `qf login` | Authenticate with a workspace token (out-of-band browser flow). |
-| `qf logout` | Remove local workspace credentials. |
-| `qf whoami` | Show the active workspace credentials. |
-| `qf status <taskId> <status>` | Update a task's status. |
-| `qf cost <taskId> …` | Log a token-cost event. |
-| `qf chat <taskId> …` | Post a message to a task thread. |
-| `qf human <taskId> …` | Escalate a task to human review. |
-| `qf pending` | List dispatched tasks. |
+| `qf reviews` | List intents awaiting your ✓, each with the link that approves it. |
 
-`qf login` (workspace token) and `qf pair` (device token) are **different
-flows** and can both be active at once — `qf pair` never overwrites the login
-credentials.
+Approval is human-only: `qf reviews` prints a confirm URL, and the ✓✓ happens
+when **you** open it under your own session. No tool and no agent can approve.
 
-> `qf link` is a deprecated alias for `qf dir` (it prints a notice and
-> forwards).
+### Removed in 0.3.0
+
+`qf login`, `qf logout`, `qf status`, `qf cost`, `qf chat`, `qf human`, and
+`qf pending` are gone. They posted to `/api/bridge/*`, a contract qfactory.io
+has never served — every one of them failed against the live server. The daemon
+reports runs through `/api/devices/complete` (cost telemetry rides along), and
+review state is readable via `qf reviews`.
+
+> Deprecated aliases print a notice and forward: `qf link` → `qf dir`,
+> `qf logout` → `qf unpair`. `qf login` exits with a pointer to `qf pair`.
 
 ## Staying up to date
 
@@ -128,15 +162,18 @@ export QF_NO_UPDATE_CHECK=1
 
 Config lives under `~/.config/qfactory/`:
 
-- `~/.config/qfactory/credentials.json` — workspace token from `qf login`.
-- `~/.config/qfactory/device.json` — device token from `qf pair`.
+- `~/.config/qfactory/device.json` — device token from `qf pair`. The only
+  credential.
 
 The local project→folder map lives at `~/.qf/repos.json`.
 
+`credentials.json` (the 0.1.x/0.2.x workspace token) is no longer read or
+written. `qf unpair` does not delete it; remove it by hand if you want it gone.
+
 **Migration:** earlier builds used `~/.config/q-factory/`. On first run the CLI
 moves that directory to `~/.config/qfactory/` automatically (best-effort; if the
-move fails you simply re-run `qf pair` / `qf login`). Override paths with
-`QF_CREDENTIALS_PATH`, `QF_DEVICE_PATH`, and `QF_REPOS_PATH` if needed.
+move fails you simply re-run `qf pair`). Override paths with `QF_DEVICE_PATH`
+and `QF_REPOS_PATH` if needed.
 
 ## Security
 
@@ -149,9 +186,13 @@ move fails you simply re-run `qf pair` / `qf login`). Override paths with
   the device token; the raw token lives only in `~/.config/qfactory/device.json`
   (written `0600`). The CLI holds an opaque bearer token — it is not a password
   and carries no account credentials.
-- **Revocation.** `qf logout` clears local workspace credentials. Remove
-  `device.json` (or unpair the device from the dashboard) to revoke device
-  access.
+- **Revocation.** `qf unpair` removes `device.json` so this machine stops
+  polling — that is local only. To actually invalidate the token, revoke the
+  device in your dashboard: the daemon then gets a 401 on its next poll and
+  stops picking up work (a running task finishes first).
+- **The control plane can't approve.** `qf-mcp` and `qf reviews` can read and
+  annotate a review; approval is human-only and happens out-of-band when you
+  open the confirm link under your own session.
 
 ## Development
 
