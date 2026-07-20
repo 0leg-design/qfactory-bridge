@@ -18,7 +18,7 @@
 
 import { Command } from "commander";
 import { hostname, platform, release } from "os";
-import { saveDeviceCredentials } from "../../core/device-credentials.js";
+import { listDeviceCredentials, saveDeviceCredentials } from "../../core/device-credentials.js";
 import { DEFAULT_SERVER, resolveServer, packageVersion } from "../../core/config.js";
 
 const POLL_INTERVAL_MS = 2_000;
@@ -190,17 +190,34 @@ export const pairCommand = new Command("pair")
       return;
     }
 
+    /* Binding count BEFORE the save, so the notice below can tell the user this
+       machine now holds several — the thing that used to happen silently, and
+       destructively: the old single-slot file was overwritten and the previous
+       device kept existing on the server with a token nobody held. */
+    const priorBindings = listDeviceCredentials().filter(
+      (d) => d.deviceId !== result.deviceId,
+    );
+
     saveDeviceCredentials({
       deviceId: result.deviceId,
       deviceToken: result.deviceToken,
       serverUrl,
       pairedAt: new Date().toISOString(),
+      label: meta.hostname,
     });
 
     console.log(`\n\n${C.green}${C.bold}✓ Paired${C.reset}`);
     console.log(`  ${C.dim}deviceId:${C.reset}    ${result.deviceId}`);
     console.log(`  ${C.dim}hostname:${C.reset}    ${meta.hostname}`);
     console.log(`  ${C.dim}credentials:${C.reset} ~/.config/qfactory/device.json`);
+    if (priorBindings.length > 0) {
+      console.log();
+      console.log(
+        `${C.dim}This machine now holds ${priorBindings.length + 1} bindings; commands run as the one just paired.${C.reset}`,
+      );
+      console.log(`${C.dim}  qf devices --local            — see them all${C.reset}`);
+      console.log(`${C.dim}  qf device use <deviceId>      — switch back${C.reset}`);
+    }
     console.log();
     console.log(`${C.bold}Next:${C.reset}`);
     console.log(

@@ -272,3 +272,6 @@ test("unwrapRpc: a 200 with neither result nor error is a bad response", () => {
 test("unwrapRpc: an empty result object is valid (ping)", () => {
   assert.deepEqual(unwrapRpc(200, { jsonrpc: "2.0", id: 1, result: {} }), {});
 });
+
+/* B5 — device bindings are plural (see the file for why). */
+import "./device-credentials.test.js";

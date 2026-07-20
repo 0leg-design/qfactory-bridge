@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 // Device pairing + local execution (the one public flow)
 import { pairCommand } from "./commands/pair.js";
 import { unpairCommand, logoutAliasCommand } from "./commands/unpair.js";
-import { devicesCommand } from "./commands/devices.js";
+import { devicesCommand, deviceCommand } from "./commands/devices.js";
 import { dirCommand, linkAliasCommand } from "./commands/dir.js";
 import { startCommand } from "./commands/start.js";
 import { stopCommand } from "./commands/stop.js";
@@ -43,6 +43,7 @@ program.addCommand(installCommand);
 program.addCommand(logsCommand);
 program.addCommand(dirCommand);
 program.addCommand(devicesCommand);
+program.addCommand(deviceCommand);
 program.addCommand(whoamiCommand);
 program.addCommand(updateCommand);
 
