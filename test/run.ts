@@ -275,3 +275,6 @@ test("unwrapRpc: an empty result object is valid (ping)", () => {
 
 /* B5 — device bindings are plural (see the file for why). */
 import "./device-credentials.test.js";
+
+/* Task 8 — the final gate must see the diff, not prose about it. */
+import "./git-change.test.js";

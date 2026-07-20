@@ -11,6 +11,12 @@ import { loadDeviceCredentials } from "../../core/device-credentials.js";
 import { detectLimitSignal, formatDuration } from "../../core/limit-signal.js";
 import { parseTokenUsage } from "../../core/token-usage.js";
 import { resolveCwd } from "../../core/repos-map.js";
+import {
+  collectGitChange,
+  gitHead,
+  summariseGitChange,
+  type GitChange,
+} from "../../core/git-change.js";
 import { reportReposMap } from "./dir.js";
 
 const DEFAULT_INTERVAL_MS = 5_000;
@@ -282,6 +288,7 @@ async function handleAssignment(
   // failure, report the task as failed with a clear, actionable message
   // (owner: "project not linked on this device — run qf link").
   let cwd: string | undefined;
+  let baseSha: string | null = null;
   if (projectId) {
     try {
       if (execMode === "managed") {
@@ -304,6 +311,10 @@ async function handleAssignment(
         cwd = mapped;
       }
       console.log(`  cwd: ${cwd}`);
+      /* Baseline BEFORE the agent touches anything — everything after this point
+         is attributable to the run. Captured here, not later, so a commit made
+         mid-run still counts as part of it. */
+      baseSha = gitHead(cwd);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (!dryRun) {
@@ -400,11 +411,35 @@ async function handleAssignment(
   }
   const succeeded = ok && !claudeError;
 
+  /* Collected for BOTH outcomes: a failed run that still edited twelve files is
+     exactly the case a reviewer must see, and the old report hid it. */
+  /* cwd is always set by here — every path that leaves it undefined returns above —
+     but the type says otherwise, and a non-null assertion would be the wrong way to
+     win that argument: if the invariant ever breaks, "no working directory" is a
+     truthful report and a crash is not. */
+  const change: GitChange = cwd
+    ? collectGitChange(cwd, baseSha)
+    : {
+        baseSha,
+        headSha: null,
+        branch: null,
+        files: [],
+        filesChanged: 0,
+        insertions: 0,
+        deletions: 0,
+        untracked: [],
+        diff: "",
+        diffTruncated: false,
+        unavailable: "no working directory resolved",
+      };
+  console.log(`  changed: ${summariseGitChange(change)}`);
+
   await postComplete(server, token, {
     assignmentId: assignment.id,
     workspaceId: assignment.workspaceId,
     storyId: assignment.storyId ?? undefined,
     taskId: assignment.taskId ?? undefined,
+    change,
     result: succeeded
       ? { stdout: resultText.slice(0, 100_000), durationMs: elapsedMs }
       : undefined,
@@ -488,6 +523,12 @@ interface CompleteBody {
   taskId?: string;
   result?: Record<string, unknown>;
   error?: string;
+  /**
+   * What the run CHANGED — numstat + the patch. The final approval gate's whole
+   * question is "does this diff match the task", and without this it was reviewing
+   * the agent's own prose about its work instead of the work.
+   */
+  change?: GitChange;
   /** CLI token telemetry (parsed from the agent's own usage output). */
   inputTokens?: number;
   outputTokens?: number;
